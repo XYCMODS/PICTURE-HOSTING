@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: pic-hosting-god
+    env: node
+    branch: main
+    plan: free
+    buildCommand: ''
+    startCommand: 'npm start'
+    region: oregon
