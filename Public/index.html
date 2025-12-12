@@ -1,1 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ABHISHEK X MODS — Image Host</title>
+  <meta name="description" content="ABHISHEK X MODS — fast image hosting with thumbnails, CDN-ready.">
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div class="page-bg"></div>
 
+  <header class="topbar">
+    <div class="wrap">
+      <div class="brand">ABHISHEK <span>X MODS</span></div>
+      <nav class="nav">
+        <a href="#upload" class="nav-link">Upload</a>
+        <a href="#gallery" class="nav-link">Gallery</a>
+        <a href="https://mypdftools.site/abhishekkeys" target="_blank" class="nav-link">Keys</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap-main">
+    <section id="hero" class="hero">
+      <div class="hero-left">
+        <h1>Fast, Reliable <span>Image Hosting</span></h1>
+        <p>Upload images, get CDN-ready direct links, thumbnails & copy in one click. Perfect for sharing and embedding.</p>
+        <div class="hero-cta">
+          <a href="#upload" class="btn">Upload Image</a>
+          <a href="#gallery" class="btn ghost">View Gallery</a>
+        </div>
+        <ul class="benefits">
+          <li><i class="fas fa-bolt"></i> Blazing fast</li>
+          <li><i class="fas fa-shield-alt"></i> Secure uploads</li>
+          <li><i class="fas fa-download"></i> Direct links</li>
+        </ul>
+      </div>
+      <div class="hero-right">
+        <div class="mockup">
+          <img src="https://i.postimg.cc/bJr65VW1/file.png" alt="preview">
+        </div>
+      </div>
+    </section>
+
+    <section id="upload" class="upload-section card">
+      <h2>Upload Image</h2>
+      <div id="dropzone" class="dropzone">
+        <input type="file" id="fileInput" accept="image/*" />
+        <div class="drop-inner">
+          <i class="fas fa-cloud-upload-alt fa-3x"></i>
+          <p>Drag & drop image or click to browse</p>
+          <small>Max 5MB. JPG/PNG/WebP/GIF/AVIF supported</small>
+        </div>
+      </div>
+      <div class="upload-controls">
+        <button id="uploadBtn" class="btn">Upload</button>
+        <div id="uploadMsg" class="muted"></div>
+      </div>
+    </section>
+
+    <section id="gallery" class="gallery-section">
+      <div class="section-head">
+        <h2>Recent Uploads</h2>
+        <p>Public gallery (latest first). Click image to open lightbox & copy direct URL.</p>
+      </div>
+      <div id="grid" class="grid"></div>
+      <div id="gridLoading" class="muted">Loading...</div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div>© 2025 ABHISHEK X MODS</div>
+      <div class="social">
+        <a href="http://t.me/ABHISHEKXMODS" target="_blank"><i class="fab fa-telegram"></i></a>
+        <a href="#"><i class="fab fa-github"></i></a>
+        <a href="#"><i class="fab fa-discord"></i></a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Lightbox modal -->
+  <div id="lightbox" class="lightbox">
+    <div class="lightbox-inner">
+      <button id="lbClose" class="lb-close"><i class="fas fa-times"></i></button>
+      <img id="lbImg" src="" alt="">
+      <div class="lb-meta">
+        <input id="lbUrl" readonly />
+        <button id="copyBtn" class="btn small">Copy URL</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ---------- CONFIG ---------- */
+const API_BASE = ''; // leave empty for same origin. If backend on Render, set to https://your-backend.onrender.com
+
+/* ---------- UTIL ---------- */
+function q(sel) { return document.querySelector(sel); }
+function el(tag,cls){ const e=document.createElement(tag); if(cls)e.className=cls; return e; }
+function showMsg(msg, elId='uploadMsg'){ document.getElementById(elId).innerHTML = msg; }
+
+/* ---------- Upload UI ---------- */
+const dropzone = q('#dropzone');
+const fileInput = q('#fileInput');
+let currentFile = null;
+
+dropzone.addEventListener('click', ()=> fileInput.click());
+fileInput.addEventListener('change', (e)=> { currentFile = e.target.files[0]; showMsg(currentFile ? currentFile.name : ''); });
+dropzone.addEventListener('dragover', (e)=> { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', (e)=> { dropzone.classList.remove('drag'); });
+dropzone.addEventListener('drop', (e)=> {
+  e.preventDefault(); dropzone.classList.remove('drag');
+  if(e.dataTransfer.files && e.dataTransfer.files[0]) {
+    currentFile = e.dataTransfer.files[0];
+    fileInput.files = e.dataTransfer.files;
+    showMsg(currentFile.name);
+  }
+});
+
+document.getElementById('uploadBtn').addEventListener('click', async ()=> {
+  if(!currentFile){ alert('Choose an image'); return; }
+  if(currentFile.size > 5*1024*1024){ alert('Max 5MB'); return; }
+  const form = new FormData();
+  form.append('image', currentFile);
+
+  showMsg('Uploading...');
+  try {
+    const target = API_BASE ? API_BASE + '/api/upload' : '/api/upload';
+    const res = await fetch(target, { method:'POST', body: form });
+    const j = await res.json();
+    if(!res.ok) throw j;
+    showMsg(`Uploaded: <a href="${j.url}" target="_blank">Open</a>`);
+    loadGallery();
+  } catch(err) {
+    console.error(err);
+    showMsg('Upload failed');
+    alert(err && err.error ? err.error : (err.message || 'Upload error'));
+  }
+});
+
+/* ---------- Gallery ---------- */
+async function loadGallery(){
+  const grid = q('#grid');
+  const loading = q('#gridLoading');
+  loading.style.display = 'block';
+  grid.innerHTML = '';
+  try {
+    const target = API_BASE ? API_BASE + '/api/list' : '/api/list';
+    const res = await fetch(target);
+    const items = await res.json();
+    if(!Array.isArray(items) || items.length===0){ grid.innerHTML = '<p class="muted">No images yet.</p>'; return; }
+    items.forEach(it => {
+      const card = el('div','card-item');
+      const img = el('img','card-img'); img.src = it.thumbnail; img.alt = it.file;
+      card.appendChild(img);
+      card.addEventListener('click', ()=> openLightbox(it));
+      grid.appendChild(card);
+    });
+  } catch(e) {
+    console.error(e);
+    q('#grid').innerHTML = '<p class="muted">Error loading gallery</p>';
+  } finally {
+    loading.style.display = 'none';
+  }
+}
+
+/* ---------- Lightbox ---------- */
+const lightbox = q('#lightbox');
+const lbImg = q('#lbImg');
+const lbUrl = q('#lbUrl');
+const copyBtn = q('#copyBtn');
+function openLightbox(item){
+  lbImg.src = item.url;
+  lbUrl.value = item.url;
+  lightbox.classList.add('open');
+}
+q('#lbClose').addEventListener('click', ()=> lightbox.classList.remove('open'));
+copyBtn.addEventListener('click', async ()=> {
+  try { await navigator.clipboard.writeText(lbUrl.value); copyBtn.textContent = 'Copied'; setTimeout(()=> copyBtn.textContent='Copy URL',1200); }
+  catch(e){ alert('Copy failed'); }
+});
+lightbox.addEventListener('click', e=> { if(e.target===lightbox) lightbox.classList.remove('open'); });
+
+/* init */
+window.addEventListener('load', loadGallery);
+</script>
+</body>
+</html>
